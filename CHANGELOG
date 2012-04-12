@@ -1,0 +1,9 @@
+
+2012-04-12  Ben Dudson  <benjamin.dudson@york.ac.uk>
+
+	* Updated include from Numeric to NumPy library
+
+2009-08-04  Ben Dudson  <benjamin.dudson@york.ac.uk>
+
+	* Initial version
+

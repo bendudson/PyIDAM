@@ -1,0 +1,118 @@
+
+IDAM module for Python, providing a interface to D.G.Muir's IDAM library
+
+Released under the BSD license (see below)
+
+Questions to Ben Dudson, University of York
+Email: bd512@york.ac.uk
+
+Installing
+==========
+
+To install this module, first compile the IDAM shared library 
+(by D.G.Muir). This will then produce a shared library
+"libidam.so". This should be copied into somewhere in your
+LD_LIBRARY_PATH (e.g. /usr/lib/")
+
+You will need to have installed the NumPy python module
+(which provides fast arrays, amongst other things)
+
+
+Run the install script install.sh:
+
+./install.sh
+
+or alternatively edit setup.py, set 'idamdir' to the directory containing
+the idam library source code, and run
+
+python setup.py install
+
+Note: You'll need adminstrator rights for this step, since
+it copies the library into Python's site-packages directory.
+
+Using
+=====
+
+python
+
+>>> import idam   # Load the library
+
+>>> idam.setHost("mast.fusion.org.uk")         # Change the host name
+>>> idam.setHost("mast.fusion.org.uk", 56565)  # Change host name and port
+>>> idam.setPort(56565)                        # Change port number
+
+>>> idam.setProperty("verbose")                # Set IDAM library property
+>>> idam.setProperty("verbose", False)         # Reset property
+
+>>> d = idam.Data("amc_plasma current", 15100) # Read a data object for MAST shot
+
+>>> d = idam.Data("\\top.inputs:cur", "MDSPLUS::fuslwn.culham.ukaea.org.uk/trmast/159052601")
+                                               # Read an MDS+ tree data object
+
+>>> d = idam.Data("\\top.magn:ipla", "MDSPLUS::mdsplus.jet.efda.org/ppf/56000");
+                                               # Read a JET MDS+ data object
+
+idam.Data() can also be given host="hostname" and port=portnumber keywords.
+
+
+The data object returned has the following members:
+
+Data
+ |- name   # The name used to request the data (e.g. "amc_plasma current")
+ |- source # Source of the data as a string (e.g. "15100")
+ |- label  # Short description (e.g. "Plasma Current")
+ |- units  # Data units (e.g. "kA")
+ |- desc   # longer description (if set)
+ |
+ |- data   # NumPy array of the data
+ |- errl   # Low-side error (may be None)
+ |- errh   # High-side error (may be None)
+ |
+ |- dim    # A list of dimensions, each of which contains:
+ |   |
+ |   |- label # Short axis label (e.g. "Time (sec)")
+ |   |- units # (e.g. "s")
+ |   |- data  # Axis values (NumPy array)
+ |   |- errl  # Low-side error (may be None)
+ |   |- errh  # High-side error (may be None)
+ |
+ |- order  # Index of time dimension
+
+
+If no errors are available, then BOTH errl and errh will be None. 
+If the error is symmetric, then errl will be equal to errh
+
+License
+=======
+
+Copyright (c) 2009, B.Dudson, University of York
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in
+   the documentation and/or other materials provided with the
+   distribution.
+
+3. Neither the name of the University of York nor the names of its
+   contributors may be used to endorse or promote products derived
+   from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
