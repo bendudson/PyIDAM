@@ -184,7 +184,7 @@ idam_readData(PyObject *self, PyObject *args)
   int handle;
   int data_n;
   int rank, order;
-  int dimsize[8];
+  npy_intp dimsize[8];
   int i;
   PyArrayObject *result;
 
@@ -209,7 +209,8 @@ idam_readData(PyObject *self, PyObject *args)
     //printf("Dim %d: %d\n", i, dimsize[i]);
   }
   
-  result = (PyArrayObject*) PyArray_FromDims(rank,dimsize,PyArray_FLOAT);
+  //result = (PyArrayObject*) PyArray_FromDims(rank,dimsize,PyArray_FLOAT); // Depreciated
+  result = (PyArrayObject*) PyArray_SimpleNew(rank,dimsize,PyArray_FLOAT);
   if (result == NULL) {
     return NULL;
   }
@@ -367,6 +368,8 @@ typedef struct {
 
   PyObject *dim;    /* List of dimensions */
   int order;        /* Which dimension is time */
+  
+  PyObject *time;   /* Refers to same NumPy array as dim[order]->data */
 
   PyObject *errl; /* Error on the low side */
   PyObject *errh;  /* Error on the high side */
@@ -394,6 +397,9 @@ static PyMemberDef idam_DataMembers[] = {
   {"order", T_INT, offsetof(idam_Data, order), 0,
    "Index of time dimension"},
 
+  {"time", T_OBJECT_EX, offsetof(idam_Data, time), 0,
+   "Time values. Same as dim[order].data"},
+
   {"errl", T_OBJECT_EX, offsetof(idam_Data, errl), 0,
    "Error on the low side"},
   {"errh", T_OBJECT_EX, offsetof(idam_Data, errh), 0,
@@ -420,6 +426,8 @@ Data_dealloc(idam_Data* self)
   Py_XDECREF(self->desc);
 
   Py_XDECREF(self->dim);
+
+  Py_XDECREF(self->time);
 
   Py_XDECREF(self->errl);
   Py_XDECREF(self->errh);
@@ -469,7 +477,11 @@ Data_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     Py_INCREF(Py_None);
     self->dim = Py_None;
+    
     self->order = 0;
+
+    Py_INCREF(Py_None);
+    self->time = Py_None;
 
     Py_INCREF(Py_None);
     self->errl = Py_None;
@@ -490,7 +502,7 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
   const char *data, *source;
   const char *host = NULL;
   char tmphost[MAXNAME];
-  int port = -1, tmpport;
+  int port = -1, tmpport=-1;
   PyObject *source_obj;
   PyObject *tmp, *tmp2;
 
@@ -500,7 +512,7 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
   PyArrayObject* pyarr;
   int data_n;
   int rank, order;
-  int dimsize[8];
+  npy_intp dimsize[8];
   int i;
 
   static char *kwlist[] = {"data", "source", "host", "port", NULL};
@@ -518,8 +530,8 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
   
   /* Check if an error occurred */
   if (source == NULL) {
-    printf("Invalid arguments to idam.Data()");
     Py_XDECREF(self);
+    PyErr_SetString(PyExc_RuntimeError, "Invalid arguments to idam.Data()");
     return -1;
   }
 
@@ -545,6 +557,8 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
       putIdamServerPort(tmpport);
     if(host != NULL)
       putIdamServerHost(tmphost);
+    
+    PyErr_SetString(PyExc_RuntimeError, getIdamErrorMsg(handle));
     return -1;
   }
  
@@ -576,6 +590,7 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
       putIdamServerHost(tmphost);
 
     Py_XDECREF(self);
+    PyErr_SetString(PyExc_RuntimeError, getIdamErrorMsg(handle));
     return -1;
   }
   
@@ -583,22 +598,23 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
   rank = getIdamRank(handle);
   order = getIdamOrder(handle);
   
-  //printf("Size = %d\nRank = %d\nOrder = %d\n", data_n, rank, order);
+  /* NOTE: Order of the dimensions is reversed */
+  order = rank - 1 - order;
 
   for(i=0;i<rank;i++) {
-    dimsize[i] = getIdamDimNum(handle, i); 
-    //printf("Dim %d: %d\n", i, dimsize[i]);
+    dimsize[rank-1-i] = getIdamDimNum(handle, i); 
   }
 
   /* Set the data */
   tmp = self->data;
-  pyarr = (PyArrayObject*) PyArray_FromDims(rank,dimsize,PyArray_FLOAT);
+  pyarr = (PyArrayObject*) PyArray_SimpleNew(rank,dimsize,PyArray_FLOAT);
   if (pyarr == NULL) {
     if(port > 0)
       putIdamServerPort(tmpport);
     if(host != NULL)
       putIdamServerHost(tmphost);
     Py_XDECREF(self);
+    PyErr_SetString(PyExc_RuntimeError, "Could not create NumPy array for data");
     return -1;
   }
   getIdamFloatData(handle, (float *)(pyarr->data));
@@ -610,13 +626,14 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
     /* Got error data */
     
     tmp = self->errl;
-    pyarr = (PyArrayObject*) PyArray_FromDims(rank,dimsize,PyArray_FLOAT);
+    pyarr = (PyArrayObject*) PyArray_SimpleNew(rank,dimsize,PyArray_FLOAT);
     if (pyarr == NULL) {
       if(port > 0)
 	putIdamServerPort(tmpport);
       if(host != NULL)
 	putIdamServerHost(tmphost);
       Py_XDECREF(self);
+      PyErr_SetString(PyExc_RuntimeError, "Could not create NumPy array for error array");
       return -1;
     }
     getIdamFloatAsymmetricError(handle, 0, (float *)(pyarr->data));
@@ -630,13 +647,14 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
       Py_INCREF(self->errh);
     }else {
       /* Need separate array */
-      pyarr = (PyArrayObject*) PyArray_FromDims(rank,dimsize,PyArray_FLOAT);
+      pyarr = (PyArrayObject*) PyArray_SimpleNew(rank,dimsize,PyArray_FLOAT);
       if (pyarr == NULL) {
 	if(port > 0)
 	  putIdamServerPort(tmpport);
 	if(host != NULL)
 	  putIdamServerHost(tmphost);
 	Py_XDECREF(self);
+        PyErr_SetString(PyExc_RuntimeError, "Could not create NumPy array for error array");
 	return -1;
       }
       getIdamFloatAsymmetricError(handle, 1, (float *)(pyarr->data));
@@ -657,12 +675,19 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
     Py_XDECREF(tmp);
   }
 
+  /* Set the time dimension to null */
+  tmp = self->time;
+  Py_INCREF(Py_None);
+  self->time = Py_None;
+  Py_XDECREF(tmp);
+
   /* Get the dimensions */
 
   tmp = self->dim;
   self->dim = PyList_New(rank);
   if(!(self->dim)) {
     Py_XDECREF(self);
+    PyErr_SetString(PyExc_RuntimeError, "Could not create list of dimensions");
     return -1;
   }
 
@@ -670,47 +695,50 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
     dim = (idam_Dimension *) Dimension_new(&idam_DimensionType, NULL, NULL);
     
     tmp2 = dim->label;
-    dim->label = PyString_FromString(getIdamDimLabel(handle, i));
+    dim->label = PyString_FromString(getIdamDimLabel(handle, rank-1-i));
     Py_XDECREF(tmp2);
     
     tmp2 = dim->units;
-    dim->units = PyString_FromString(getIdamDimUnits(handle, i));
+    dim->units = PyString_FromString(getIdamDimUnits(handle, rank-1-i));
     Py_XDECREF(tmp2);
     
     tmp2 = dim->data;
-    pyarr = (PyArrayObject*) PyArray_FromDims(1,&(dimsize[i]),PyArray_FLOAT);
+    pyarr = (PyArrayObject*) PyArray_SimpleNew(1,&(dimsize[i]),PyArray_FLOAT);
     if (pyarr == NULL) {
       Py_XDECREF(self);
+      PyErr_SetString(PyExc_RuntimeError, "Could not create NumPy array for dimension");
       return -1;
     }
-    getIdamFloatDimData(handle, i, (float *)(pyarr->data));
+    getIdamFloatDimData(handle, rank-1-i, (float *)(pyarr->data));
     dim->data = PyArray_Return(pyarr);
     Py_XDECREF(tmp2);
     
-    if(getIdamDimErrorType(handle, i) != TYPE_UNKNOWN) {
+    if(getIdamDimErrorType(handle, rank-1-i) != TYPE_UNKNOWN) {
       tmp2 = dim->errl;
-      pyarr = (PyArrayObject*) PyArray_FromDims(1,&(dimsize[i]),PyArray_FLOAT);
+      pyarr = (PyArrayObject*) PyArray_SimpleNew(1,&(dimsize[i]),PyArray_FLOAT);
       if (pyarr == NULL) {
 	Py_XDECREF(self);
+        PyErr_SetString(PyExc_RuntimeError, "Could not create NumPy array for dimension error");
 	return -1;
       }
-      getIdamFloatDimAsymmetricError(handle, i, 0, (float *)(pyarr->data));
+      getIdamFloatDimAsymmetricError(handle, rank-1-i, 0, (float *)(pyarr->data));
       dim->errl = PyArray_Return(pyarr);
       Py_XDECREF(tmp2);
       
       tmp2 = dim->errh;
-      if(!getIdamDimErrorAsymmetry(handle, i)) {
+      if(!getIdamDimErrorAsymmetry(handle, rank-1-i)) {
 	/* Symmetric error */
 	dim->errh = dim->errl;
 	Py_INCREF(self->errh);
       }else {
 	/* Asymmetric error */
-	pyarr = (PyArrayObject*) PyArray_FromDims(1,&(dimsize[i]),PyArray_FLOAT);
+	pyarr = (PyArrayObject*) PyArray_SimpleNew(1,&(dimsize[i]),PyArray_FLOAT);
 	if (pyarr == NULL) {
 	  Py_XDECREF(self);
+          PyErr_SetString(PyExc_RuntimeError, "Could not create NumPy array for dimension error");
 	  return -1;
 	}
-	getIdamFloatDimAsymmetricError(handle, i, 1, (float *)(pyarr->data));
+	getIdamFloatDimAsymmetricError(handle, rank-1-i, 1, (float *)(pyarr->data));
 	dim->errh = PyArray_Return(pyarr);
       }
       Py_XDECREF(tmp2);
@@ -727,6 +755,14 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
       Py_XDECREF(tmp2);
     }
     
+    /* Create shortcut to time data */
+    if(i == order) { /* This is the time dimension */
+      tmp2 = self->time;
+      Py_INCREF(dim->data);
+      self->time = dim->data;
+      Py_XDECREF(tmp2);
+    }
+    
     /* Add this dimension to the list */
     PyList_SET_ITEM(self->dim, i, (PyObject*) dim);
   }
@@ -734,7 +770,7 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
   
   /*  Set index of time dimension */
   self->order = order;
-
+  
   /* Free IDAM data */
   idamFree(handle);
   

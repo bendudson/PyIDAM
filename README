@@ -77,7 +77,8 @@ Data
  |   |- errh  # High-side error (may be None)
  |
  |- order  # Index of time dimension
-
+ |
+ |- time   # A shortcut to the time data (dim[order].data). May be None
 
 If no errors are available, then BOTH errl and errh will be None. 
 If the error is symmetric, then errl will be equal to errh
