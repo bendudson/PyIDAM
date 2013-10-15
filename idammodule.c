@@ -57,6 +57,36 @@
 #include "idamclientserver.h"
 #include "idamclient.h"
 
+/* PyVarObject definition for Python 2.5 or earlier */
+#ifndef PyVarObject_HEAD_INIT
+  #define PyVarObject_HEAD_INIT(type, size)       \
+    PyObject_HEAD_INIT(type) size,
+#endif
+
+/* Py_TYPE for < 2.6 */
+#ifndef Py_TYPE
+#define Py_TYPE(ob) (((PyObject*)(ob))->ob_type)
+#endif
+
+#if PY_MAJOR_VERSION >= 3
+const char* StringToChars(PyObject *s)
+{
+  PyObject* obj = PyUnicode_AsUTF8String(s);
+  if(obj == NULL)
+    return NULL;
+  
+  const char* ch = PyBytes_AsString(obj);
+  Py_DECREF(obj);
+  
+  return ch;
+}
+
+#define CharsToString PyBytes_FromString
+#else
+#define StringToChars PyString_AsString
+#define CharsToString PyString_FromString
+#endif
+
 static PyObject*
 idam_test(PyObject *self, PyObject *args)
 {
@@ -268,7 +298,7 @@ Dimension_dealloc(idam_Dimension* self)
   Py_XDECREF(self->errl);
   Py_XDECREF(self->errh);
 
-  self->ob_type->tp_free((PyObject*)self);
+  Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 /* Create a new instance (NOT initialisation) */
@@ -280,13 +310,13 @@ Dimension_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self = (idam_Dimension *)type->tp_alloc(type, 0);
   if (self != NULL) {
     
-    self->label = PyString_FromString("No data");
+    self->label = CharsToString("No data");
     if (self->label == NULL) {
       Py_DECREF(self);
       return NULL;
     }
 
-    self->units = PyString_FromString("No units");
+    self->units = CharsToString("No units");
     if (self->units == NULL) {
       Py_DECREF(self);
       return NULL;
@@ -311,8 +341,7 @@ static PyMethodDef idam_DimensionMethods[] = {
 };
 
 static PyTypeObject idam_DimensionType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
+  PyVarObject_HEAD_INIT(NULL, 0)
     "idam.Dimension",          /*tp_name*/
     sizeof(idam_Dimension),    /*tp_basicsize*/
     0,                         /*tp_itemsize*/
@@ -434,7 +463,7 @@ Data_dealloc(idam_Data* self)
 
   Py_XDECREF(self->data);
   
-  self->ob_type->tp_free((PyObject*)self);
+  Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 /* Create a new instance (NOT initialisation) */
@@ -445,31 +474,31 @@ Data_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   self = (idam_Data *)type->tp_alloc(type, 0);
   if (self != NULL) {
-    self->name = PyString_FromString("");
+    self->name = CharsToString("");
     if (self->name == NULL) {
       Py_DECREF(self);
       return NULL;
     }
     
-    self->source = PyString_FromString("");
+    self->source = CharsToString("");
     if (self->source == NULL) {
       Py_DECREF(self);
       return NULL;
     }
     
-    self->label = PyString_FromString("No data");
+    self->label = CharsToString("No data");
     if (self->label == NULL) {
       Py_DECREF(self);
       return NULL;
     }
 
-    self->units = PyString_FromString("No units");
+    self->units = CharsToString("No units");
     if (self->units == NULL) {
       Py_DECREF(self);
       return NULL;
     }
 
-    self->desc = PyString_FromString("No description");
+    self->desc = CharsToString("No description");
     if (self->desc == NULL) {
       Py_DECREF(self);
       return NULL;
@@ -526,7 +555,7 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
 
   /* Convert second argument to a string */
   source_obj = PyObject_Str(tmp); /* NB: This object is returned */
-  source = PyString_AsString(source_obj); /* Refers to internal buffer */
+  source = StringToChars(source_obj); /* Refers to internal buffer */
   
   /* Check if an error occurred */
   if (source == NULL) {
@@ -564,7 +593,7 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
  
   /* Set data name and source */
   tmp = self->name;
-  self->name = PyString_FromString(data);
+  self->name = CharsToString(data);
   Py_XDECREF(tmp);
   tmp = self->source;
   self->source = source_obj;
@@ -572,13 +601,13 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
 
   /* Set data label, units and description */
   tmp = self->label;
-  self->label = PyString_FromString(getIdamDataLabel(handle));
+  self->label = CharsToString(getIdamDataLabel(handle));
   Py_XDECREF(tmp);
   tmp = self->units;
-  self->units = PyString_FromString(getIdamDataUnits(handle));
+  self->units = CharsToString(getIdamDataUnits(handle));
   Py_XDECREF(tmp);
   tmp = self->desc;
-  self->desc = PyString_FromString(getIdamDataDesc(handle));
+  self->desc = CharsToString(getIdamDataDesc(handle));
   Py_XDECREF(tmp);
 
   /* Get the size of the data array */
@@ -695,11 +724,11 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
     dim = (idam_Dimension *) Dimension_new(&idam_DimensionType, NULL, NULL);
     
     tmp2 = dim->label;
-    dim->label = PyString_FromString(getIdamDimLabel(handle, rank-1-i));
+    dim->label = CharsToString(getIdamDimLabel(handle, rank-1-i));
     Py_XDECREF(tmp2);
     
     tmp2 = dim->units;
-    dim->units = PyString_FromString(getIdamDimUnits(handle, rank-1-i));
+    dim->units = CharsToString(getIdamDimUnits(handle, rank-1-i));
     Py_XDECREF(tmp2);
     
     tmp2 = dim->data;
@@ -789,8 +818,7 @@ static PyMethodDef idam_DataMethods[] = {
 };
 
 static PyTypeObject idam_DataType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
+  PyVarObject_HEAD_INIT(NULL, 0)
     "idam.Data",               /*tp_name*/
     sizeof(idam_Data),         /*tp_basicsize*/
     0,                         /*tp_itemsize*/
@@ -863,6 +891,25 @@ static PyMethodDef IdamMethods[] = {
 };
 
 /************************************************************
+ * Module definition for Python 3
+ ************************************************************/
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT,
+  "idam",     /* m_name */
+  "IDAM data access module",  /* m_doc */
+  -1,                  /* m_size */
+  IdamMethods,         /* m_methods */
+  NULL,                /* m_reload */
+  NULL,                /* m_traverse */
+  NULL,                /* m_clear */
+  NULL,                /* m_free */
+};
+#endif
+
+
+/************************************************************
  * Module initialisation
  ************************************************************/
 
@@ -870,24 +917,29 @@ static PyMethodDef IdamMethods[] = {
 #define PyMODINIT_FUNC void
 #endif
 
-PyMODINIT_FUNC
-initidam(void)
+static PyObject *
+moduleinit(void)   // Module initialisation for Python 3
 {
   PyObject *m;
   
   idam_DataType.tp_new = PyType_GenericNew;
   if (PyType_Ready(&idam_DataType) < 0)
-    return;
+    return NULL;
 
   idam_DimensionType.tp_new = PyType_GenericNew;
   if (PyType_Ready(&idam_DimensionType) < 0)
-    return;
+    return NULL;
 
   /* Initialise module */
+  #if PY_MAJOR_VERSION >= 3
+  m = PyModule_Create(&moduledef);
+  #else
+  // Python 2
   m = Py_InitModule3("idam", IdamMethods, "IDAM data access module.");
+  #endif
   
   if(m == NULL)
-    return;
+    return NULL;
 
   /* Add types */
   Py_INCREF(&idam_DataType);
@@ -906,4 +958,18 @@ initidam(void)
   /* Check for errors */
   if (PyErr_Occurred())
     Py_FatalError("can't initialize module idam");
+  
+  return m;
 }
+
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC PyInit_idam(void)
+{
+  return moduleinit();
+}
+#else
+PyMODINIT_FUNC initidam(void)
+{
+  moduleinit();
+}
+#endif
