@@ -187,7 +187,7 @@ idam_getAPI(PyObject *self, PyObject *args)
   
   handle = idamGetAPI(data, source);
 
-  if(!getIdamSourceStatus(handle)) {
+  if(!getIdamSignalStatus(handle)) {
     fprintf(stderr, "IDAM error: %s\n", getIdamErrorMsg(handle));
   }
   
@@ -579,7 +579,7 @@ Data_init(idam_Data *self, PyObject *args, PyObject *kwds)
   printf("Reading '%s' from '%s'\n", data, source);
   handle = idamGetAPI(data, source);
 
-  if(!getIdamSourceStatus(handle)) {
+  if(!getIdamSignalStatus(handle)) {
     fprintf(stderr, "IDAM error: %s\n", getIdamErrorMsg(handle));
     /* Restore host and port */
     if(port > 0)
