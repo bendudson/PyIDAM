@@ -37,9 +37,9 @@ python
 
 >>> import idam   # Load the library
 
->>> idam.setHost("mast.fusion.org.uk")         # Change the host name
->>> idam.setHost("mast.fusion.org.uk", 56565)  # Change host name and port
->>> idam.setPort(56565)                        # Change port number
+>>> idam.setHost("idam.fusion.ccfe.ac.uk")        # Change the host name
+>>> idam.setHost("idam.fusion.ccfe.ac.uk", 56565) # Change host name and port
+>>> idam.setPort(56565)                           # Change port number
 
 >>> idam.setProperty("verbose")                # Set IDAM library property
 >>> idam.setProperty("verbose", False)         # Reset property

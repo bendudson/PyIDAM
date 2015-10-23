@@ -952,7 +952,7 @@ moduleinit(void)   // Module initialisation for Python 3
   import_array();
 
   /* Initialise IDAM with default values */
-  putIdamServerHost("mast.fusion.org.uk");
+  putIdamServerHost("idam.fusion.ccfe.ac.uk");
   putIdamServerPort(56565);
 
   /* Check for errors */
