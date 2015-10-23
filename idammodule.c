@@ -71,11 +71,14 @@
 #if PY_MAJOR_VERSION >= 3
 const char* StringToChars(PyObject *s)
 {
-  PyObject* obj = PyUnicode_AsUTF8String(s);
+  PyObject* obj;
+  const char* ch;
+  
+  obj = PyUnicode_AsUTF8String(s);
   if(obj == NULL)
     return NULL;
   
-  const char* ch = PyBytes_AsString(obj);
+  ch = PyBytes_AsString(obj);
   Py_DECREF(obj);
   
   return ch;

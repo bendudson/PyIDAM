@@ -9,8 +9,10 @@ idamdir = '/home/ben/codes/idam'
 
 from distutils.core import setup, Extension
 
+import numpy
+
 module1 = Extension('idam',
-                    include_dirs = [idamdir],
+                    include_dirs = [idamdir, numpy.get_include()],
                     library_dirs = [idamdir],
                     libraries = ['idam'],
                     sources = ['idammodule.c'])
