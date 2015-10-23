@@ -81,7 +81,7 @@ const char* StringToChars(PyObject *s)
   return ch;
 }
 
-#define CharsToString PyBytes_FromString
+#define CharsToString PyUnicode_FromString
 #else
 #define StringToChars PyString_AsString
 #define CharsToString PyString_FromString
